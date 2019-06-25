@@ -1,7 +1,7 @@
+"use strict";
+
 var apijs = require ("tnt.api");
 
-// var board = {};
-// board.track = {};
 var layout = function () {
 
     // The returned closure / object

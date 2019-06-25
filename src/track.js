@@ -1,9 +1,9 @@
+"use strict";
+
 var apijs = require ("tnt.api");
 var iterator = require("tnt.utils").iterator;
 
-
 var track = function () {
-    "use strict";
 
     var display;
 

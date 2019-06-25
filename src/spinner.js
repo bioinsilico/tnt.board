@@ -1,3 +1,5 @@
+"use strict";
+
 var spinner = function () {
     // var n = 0;
     var sp_elem;

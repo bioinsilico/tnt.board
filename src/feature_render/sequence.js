@@ -3,7 +3,7 @@
 var apijs = require ("tnt.api");
 var feature_core = require("./core.js");
 
-var feature_pin = function () {
+var feature_sequence = function () {
     var feature = feature_core();
 
     var yScale = d3.scale.linear()
@@ -28,6 +28,7 @@ var feature_pin = function () {
     	    .domain(feature.domain())
     	    .range([pin_ball_r, track.height()-pin_ball_r-10]); // 10 for labelling
 
+        /*
     	// pins are composed of lines, circles and labels
     	new_pins
     	    .append("line")
@@ -59,6 +60,7 @@ var feature_pin = function () {
     	    .attr("fill", function (d) {
                 return d3.functor(feature.color())(d);
             });
+        */
 
         new_pins
             .append("text")
@@ -143,4 +145,4 @@ var feature_pin = function () {
     return feature;
 };
 
-module.exports = exports = feature_pin;
+module.exports = exports = feature_sequence;

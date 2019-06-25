@@ -66,4 +66,4 @@ var feature_block = function () {
 
 };
 
-module.exports = exports = feature_block();
+module.exports = exports = feature_block;

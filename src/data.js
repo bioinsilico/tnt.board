@@ -1,3 +1,5 @@
+"use strict";
+
 var apijs = require ("tnt.api");
 var spinner = require ("./spinner.js")();
 
