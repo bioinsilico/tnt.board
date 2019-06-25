@@ -5,3 +5,6 @@ node_modules
 coverage/lcov.info
 _site
 .idea
+package-lock.json
+axamples/build*
+examples/tests
