@@ -1,5 +1,6 @@
 "use conservation";
 
+var d3 = require("d3");
 var feature_area = require("./area.js");
 
 var feature_conservation = function () {

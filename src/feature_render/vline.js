@@ -1,5 +1,6 @@
 "use strict";
 
+var d3 = require("d3");
 var feature_core = require("./core.js");
 
 var feature_vline = function () {

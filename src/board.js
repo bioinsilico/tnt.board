@@ -1,20 +1,25 @@
 var apijs = require ("tnt.api");
 var deferCancel = require ("tnt.utils").defer_cancel;
+var d3 = require("d3");
 
 var board = function() {
     "use strict";
 
-    //// Private vars
+    var browserDiv;
     var svg;
+    var svg_g;
+    var pane; // Draggable pane
+
+    //// Private vars
     var div_id;
     var tracks = [];
     var min_width = 50;
     var height    = 0;    // This is the global height including all the tracks
     var width     = 920;
-    var height_offset = 20;
+    var inner_padding = 10;
+    var height_offset = 0;
+    var selection = {};
     var loc = {
-	species  : undefined,
-	chr      : undefined,
         from     : 0,
         to       : 500
     };
@@ -29,16 +34,14 @@ var board = function() {
 
     // TODO: We have now background color in the tracks. Can this be removed?
     // It looks like it is used in the too-wide pane etc, but it may not be needed anymore
-    var bgColor   = d3.rgb('#F8FBEF'); //#F8FBEF
-    var pane; // Draggable pane
-    var svg_g;
+    var bgColor   = d3.rgb('#FFFFFF'); //#F8FBEF
     var xScale;
     var zoomEventHandler = d3.behavior.zoom();
     var limits = {
-        min : 0,
-        max : 1000,
+        min : -1.5,
+        max : 10000,
         zoom_out : 1000,
-        zoom_in  : 100
+        zoom_in  : 20
     };
     var dur = 500;
     var drag_allowed = true;
@@ -61,49 +64,23 @@ var board = function() {
     	d3.select(div)
     	    .classed("tnt", true);
 
-    	// TODO: Move the styling to the scss?
-    	var browserDiv = d3.select(div)
-    	    .append("div")
-    	    .attr("id", "tnt_" + div_id)
+    	browserDiv = d3.select(div)
     	    .style("position", "relative")
-    	    .classed("tnt_framed", exports.show_frame ? true : false)
+    	    .classed("tnt_framed", exports.show_frame)
     	    .style("width", (width + cap_width*2 + exports.extend_canvas.right + exports.extend_canvas.left) + "px");
 
-    	var groupDiv = browserDiv
-    	    .append("div")
-    	    .attr("class", "tnt_groupDiv");
-
     	// The SVG
-    	svg = groupDiv
+    	svg = browserDiv
     	    .append("svg")
     	    .attr("class", "tnt_svg")
     	    .attr("width", width)
-    	    .attr("height", height)
     	    .attr("pointer-events", "all");
 
     	svg_g = svg
     	    .append("g")
-                .attr("transform", "translate(0,20)")
-                .append("g")
+            .attr("class", "tnt_master_g")
+            .append("g")
     	    .attr("class", "tnt_g");
-
-    	// caps
-    	caps.left = svg_g
-    	    .append("rect")
-    	    .attr("id", "tnt_" + div_id + "_5pcap")
-    	    .attr("x", 0)
-    	    .attr("y", 0)
-    	    .attr("width", 0)
-    	    .attr("height", height)
-    	    .attr("fill", "red");
-    	caps.right = svg_g
-    	    .append("rect")
-    	    .attr("id", "tnt_" + div_id + "_3pcap")
-    	    .attr("x", width-cap_width)
-    	    .attr("y", 0)
-    	    .attr("width", 0)
-    	    .attr("height", height)
-    	    .attr("fill", "red");
 
     	// The Zooming/Panning Pane
     	pane = svg_g
@@ -111,36 +88,52 @@ var board = function() {
     	    .attr("class", "tnt_pane")
     	    .attr("id", "tnt_" + div_id + "_pane")
     	    .attr("width", width)
-    	    .attr("height", height)
     	    .style("fill", bgColor);
 
-    	// ** TODO: Wouldn't be better to have these messages by track?
-    	// var tooWide_text = svg_g
-    	//     .append("text")
-    	//     .attr("class", "tnt_wideOK_text")
-    	//     .attr("id", "tnt_" + div_id + "_tooWide")
-    	//     .attr("fill", bgColor)
-    	//     .text("Region too wide");
-
-    	// TODO: I don't know if this is the best way (and portable) way
-    	// of centering the text in the text area
-    	// var bb = tooWide_text[0][0].getBBox();
-    	// tooWide_text
-    	//     .attr("x", ~~(width/2 - bb.width/2))
-    	//     .attr("y", ~~(height/2 - bb.height/2));
     };
 
     // API
     var api = apijs (track_vis)
     	.getset (exports)
     	.getset (limits)
-    	.getset (loc);
+    	.getset (loc)
+        .getset (selection);
 
     api.transform (track_vis.extend_canvas, function (val) {
     	var prev_val = track_vis.extend_canvas();
     	val.left = val.left || prev_val.left;
     	val.right = val.right || prev_val.right;
     	return val;
+    });
+
+    api.method ('set_selection', function (selection) {
+        if(selection.id !== div_id){
+            track_vis.select_region.call(track_vis,selection.begin, selection.end, true);
+        }
+    });
+
+    api.method ('select_region', function (begin,end,prop_flag) {
+        if(typeof(begin) === "number" && typeof(end)==="number"){
+            selection = {begin:begin, end:end, id:div_id};
+            if(prop_flag!==true) {
+                dispatch_selection_event(selection);
+            }
+        }else{
+            begin = selection.begin;
+            end = selection.end;
+        }
+        tracks.forEach(function(track){
+            if(track.g){
+                if(typeof(track.display().displays) === "function"){
+                    var display = track.display().displays()[0];
+                    display.select_region.call(display, track.g, height, begin, end);
+                }else {
+                    if(typeof track.display().select_region === "function") {
+                        track.display().select_region.call(track.display(), track.g, height, begin, end);
+                    }
+                }
+            }
+        })
     });
 
     // track_vis always starts on loc.from & loc.to
@@ -204,7 +197,7 @@ var board = function() {
     var plot = function() {
     	xScale = d3.scale.linear()
     	    .domain([loc.from, loc.to])
-    	    .range([0, width]);
+    	    .range([inner_padding, width-inner_padding]);
 
     	if (drag_allowed) {
     	    svg_g.call( zoomEventHandler
@@ -256,6 +249,8 @@ var board = function() {
         }
     });
 
+
+
     api.method ('zoom', function (factor) {
         _manual_move(1/factor, 0);
     });
@@ -275,10 +270,12 @@ var board = function() {
     api.method ('add_track', function (track) {
         if (track instanceof Array) {
             for (var i=0; i<track.length; i++) {
+                track[i].set_board(track_vis);
                 track_vis.add_track (track[i]);
             }
             return track_vis;
         }
+        track.set_board(track_vis);
         tracks.push(track);
         return track_vis;
     });
@@ -314,7 +311,7 @@ var board = function() {
 
     	    // Replot
     	    width = w;
-            xScale.range([0, width]);
+            xScale.range([inner_padding, width-inner_padding]);
 
     	    plot();
     	    for (var i=0; i<tracks.length; i++) {
@@ -369,28 +366,10 @@ var board = function() {
         }
 
         // svg
+        height = h + height_offset;
         svg.attr("height", h + height_offset);
-
-        // div
-        d3.select("#tnt_" + div_id)
-            .style("height", (h + 10 + height_offset) + "px");
-
-        // caps
-        d3.select("#tnt_" + div_id + "_5pcap")
-            .attr("height", h)
-            .each(function (d) {
-                move_to_front(this);
-            });
-
-        d3.select("#tnt_" + div_id + "_3pcap")
-            .attr("height", h)
-            .each (function (d) {
-                move_to_front(this);
-            });
-
-        // pane
-        pane
-            .attr("height", h + height_offset);
+        pane.attr("height", h + height_offset);
+        browserDiv.style("height", (h+height_offset).toString()+"px");
 
         return track_vis;
     };
@@ -408,6 +387,7 @@ var board = function() {
     	    .attr("y", 0)
     	    .attr("width", track_vis.width())
     	    .attr("height", track.height())
+            .attr("class","tnt_board_rect")
     	    .style("fill", track.color())
     	    .style("pointer-events", "none");
 
@@ -443,6 +423,7 @@ var board = function() {
 
     	var x = 0;
     	d3.timer(function() {
+    	    console.log("timer");
     	    var curr_start = interpolator(ease(x));
     	    var curr_end;
     	    switch (direction) {
@@ -477,13 +458,14 @@ var board = function() {
     	}
     };
     // The deferred_cbak is deferred at least this amount of time or re-scheduled if deferred is called before
-    var _deferred = deferCancel(_move_cbak, 300);
+    var _deferred = deferCancel(_move_cbak, 100);
 
     // api.method('update', function () {
     // 	_move();
     // });
 
-    var _move = function (new_xScale) {
+    var _move = function (new_xScale,prop_flag) {
+
     	if (new_xScale !== undefined && drag_allowed) {
     	    zoomEventHandler.x(new_xScale);
     	}
@@ -491,21 +473,18 @@ var board = function() {
     	// Show the red bars at the limits
     	var domain = xScale.domain();
     	if (domain[0] <= (limits.min + 5)) {
-    	    d3.select("#tnt_" + div_id + "_5pcap")
-    		.attr("width", cap_width)
-    		.transition()
-    		.duration(200)
-    		.attr("width", 0);
+    	    var master_div = d3.select(d3.select("#"+div_id).node().parentNode);
+            /*master_div.style("border-left","3px solid red");
+            master_div.transition().style("border-left","").delay(2000).duration(2000);*/
     	}
 
     	if (domain[1] >= (limits.max)-5) {
-    	    d3.select("#tnt_" + div_id + "_3pcap")
+    	    /*d3.select("#tnt_" + div_id + "_3pcap")
     		.attr("width", cap_width)
     		.transition()
     		.duration(200)
-    		.attr("width", 0);
+    		.attr("width", 0);*/
     	}
-
 
     	// Avoid moving past the limits
     	if (domain[0] < limits.min) {
@@ -520,6 +499,33 @@ var board = function() {
     	    var track = tracks[i];
     	    track.display().mover.call(track);
     	}
+        track_vis.select_region.call(track_vis);
+
+        if(prop_flag!==true){
+            dispatch_scale_event({
+                scale:zoomEventHandler.scale(),
+                tr:zoomEventHandler.translate(),
+                id:div_id
+            });
+        }
+    };
+
+    api.method ('set_scale', function (transform) {
+        if(transform.id !== div_id){
+            zoomEventHandler.scale(transform.scale);
+    	    zoomEventHandler.translate(transform.tr);
+    	    _move(undefined,true);
+        }
+    });
+
+    var dispatch_scale_event = function(transform){
+        var event = new CustomEvent('board_moved',{detail:transform} );
+        document.getElementById(div_id).parentElement.dispatchEvent(event);
+    };
+
+    var dispatch_selection_event = function(selection){
+        var event = new CustomEvent('element_selected',{detail:selection} );
+        document.getElementById(div_id).parentElement.dispatchEvent(event);
     };
 
     // api.method({

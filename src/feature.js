@@ -5,7 +5,6 @@ var feature_composite = require("./feature_render/composite.js");
 var feature_area = require("./feature_render/area.js");
 var feature_line = require("./feature_render/line.js");
 var feature_conservation = require("./feature_render/conservation.js");
-var feature_ensembl = require("./feature_render/ensembl.js");
 var feature_vline = require("./feature_render/vline.js");
 var feature_pin = require("./feature_render/pin.js");
 var feature_block = require("./feature_render/block.js");
@@ -31,10 +30,6 @@ tnt_feature.line = function () {
 
 tnt_feature.conservation = function () {
     return feature_conservation();
-};
-
-tnt_feature.ensembl = function () {
-    return feature_ensembl();
 };
 
 tnt_feature.vline = function () {

@@ -1,5 +1,6 @@
 "use strict";
 
+var d3 = require("d3");
 var feature_axis = function () {
     var xAxis;
     var orientation = "top";
@@ -20,6 +21,7 @@ var feature_axis = function () {
     };
 
     feature.init = function () {
+        var track = this;
         xAxis = undefined;
     };
 
@@ -33,6 +35,7 @@ var feature_axis = function () {
 
     	var track = this;
     	var svg_g = track.g;
+        svg_g.attr("transform", "translate(0,20)");
     	svg_g.call(xAxis);
     };
 

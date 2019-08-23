@@ -2,19 +2,21 @@
 
 var apijs = require ("tnt.api");
 var iterator = require("tnt.utils").iterator;
+var tnt_data = require("./data.js");
 
 var track = function () {
 
     var display;
 
     var conf = {
-    	color : d3.rgb('#CCCCCC'),
+    	color : '#CCCCCC',
     	height           : 250,
     	// data is the object (normally a tnt.track.data object) used to retrieve and update data for the track
-    	data             : track.data.empty(),
+        data             : tnt_data.load(),
         // display          : undefined,
         label            : "",
-        id               : track.id()
+        id               : track.id(),
+        board: undefined
     };
 
     // The returned object / closure
@@ -22,13 +24,16 @@ var track = function () {
 
     // API
     var api = apijs (t)
-    	.getset (conf);
+    	.getset (conf)
+        .method('set_board',function(board){
+            t.board(board);
+        });
 
     // TODO: This means that height should be defined before display
     // we shouldn't rely on this
     t.display = function (new_plotter) {
         if (!arguments.length) {
-            return display;
+            return display;//track: block, ...
         }
 
         display = new_plotter;
@@ -42,7 +47,15 @@ var track = function () {
             }
         }
 
-        return this;
+        return this;//this class conf
+    };
+
+    t.load = function(data){
+        return this.data(
+            tnt_data.load().retriever(function () {
+                return data;
+            })
+        );
     };
 
     return t;

@@ -1,10 +1,12 @@
 "use strict";
 
+var d3 = require("d3");
 var apijs = require ("tnt.api");
 var feature_core = require("./core.js");
 
 var feature_sequence = function () {
     var feature = feature_core();
+    var ratio_interval = [5,16];
 
     var yScale = d3.scale.linear()
     	.domain([0,0])
@@ -12,64 +14,30 @@ var feature_sequence = function () {
 
     var opts = {
         pos : d3.functor("pos"),
-        val : d3.functor("val"),
-        domain : [0,1]
+        val : d3.functor("val")
     };
-
-    var pin_ball_r = 5; // the radius of the circle in the pin
 
     apijs(feature)
         .getset(opts);
 
-    feature.create (function (new_pins) {
+    feature.create(function (new_aa) {
     	var track = this;
+    	var svg_g = track.g;
         var xScale = feature.scale();
+
     	yScale
-    	    .domain(feature.domain())
-    	    .range([pin_ball_r, track.height()-pin_ball_r-10]); // 10 for labelling
+    	    .domain([0, track.height()])
+    	    .range([0, track.height()]); // 10 for labelling
 
-        /*
-    	// pins are composed of lines, circles and labels
-    	new_pins
-    	    .append("line")
-    	    .attr("x1", function (d, i) {
-    	    	return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("y1", function (d) {
-                return track.height();
-    	    })
-    	    .attr("x2", function (d,i) {
-    	    	return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("y2", function (d, i) {
-    	    	return track.height() - yScale(d[opts.val(d, i)]);
-    	    })
-    	    .attr("stroke", function (d) {
-                return d3.functor(feature.color())(d);
-            });
-
-    	new_pins
-    	    .append("circle")
-    	    .attr("cx", function (d, i) {
-                return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("cy", function (d, i) {
-                return track.height() - yScale(d[opts.val(d, i)]);
-    	    })
-    	    .attr("r", pin_ball_r)
-    	    .attr("fill", function (d) {
-                return d3.functor(feature.color())(d);
-            });
-        */
-
-        new_pins
+        new_aa
             .append("text")
-            .attr("font-size", "13")
+            .attr("font-size", "10")
+            .attr("font-family","Arial")
             .attr("x", function (d, i) {
-                return xScale(d[opts.pos(d, i)]);
+                return xScale(d.pos);
             })
             .attr("y", function (d, i) {
-                return 10;
+                return yScale(Math.floor(track.height()*0.5)+4);
             })
             .style("text-anchor", "middle")
             .style("fill", function (d) {
@@ -77,70 +45,96 @@ var feature_sequence = function () {
             })
             .text(function (d) {
                 return d.label || "";
-            });
-
+            })
+            .call(opacity,xScale);
     });
 
-    feature.distribute (function (pins) {
-        pins
+    feature.update = function(loc, field){
+        var track = this;
+        var svg_g = track.g;
+        var xScale = feature.scale();
+        var elements = track.data().elements();
+
+        if (field !== undefined) {
+            elements = elements[field];
+        }
+
+        var data_elems = feature.layout().call(track, elements);
+
+        if (data_elems === undefined) {
+            return;
+        }
+
+        data_elems = data_elems.split("").map(function(s,i) {
+            return {pos:(i + 1), label:s};
+        }).filter(function (s,i) {
+            return (i+1 >= feature.scale().domain()[0] && i <= feature.scale().domain()[1]);
+        });
+
+        var elem_class = ".tnt_elem";
+        if (field !== undefined) {
+            elem_class += "_"+field;
+        }
+
+        svg_g.selectAll(elem_class).remove();
+        svg_g.select(".tnt_elem_seq_bg").remove();
+
+        if(get_ratio(feature.scale())>=ratio_interval[0]){
+            svg_g.selectAll(elem_class).data(data_elems)
+                .enter()
+                .append("g")
+                .attr("class", "tnt_elem")
+                .classed("tnt_elem_" + field, field)
+                .call(feature.plot, track, feature.scale());
+        }
+
+        if(typeof(track.display().select_region)==="function") {
+            track.display().select_region.call(track.display(), svg_g);
+        }
+    };
+
+    feature.distribute (function (aa) {
+        aa
             .select("text")
             .text(function (d) {
                 return d.label || "";
             });
     });
 
-    feature.move(function (pins) {
+    feature.move(function (aa, field) {
     	var track = this;
         var xScale = feature.scale();
 
-    	pins
-    	    //.each(position_pin_line)
-    	    .select("line")
-    	    .attr("x1", function (d, i) {
-                return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("y1", function (d) {
-        		return track.height();
-    	    })
-    	    .attr("x2", function (d,i) {
-        		return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("y2", function (d, i) {
-        		return track.height() - yScale(d[opts.val(d, i)]);
-    	    });
-
-    	pins
-    	    .select("circle")
-    	    .attr("cx", function (d, i) {
-                return xScale(d[opts.pos(d, i)]);
-    	    })
-    	    .attr("cy", function (d, i) {
-                return track.height() - yScale(d[opts.val(d, i)]);
-    	    });
-
-        pins
-            .select("text")
+        aa.select("text")
             .attr("x", function (d, i) {
-                return xScale(d[opts.pos(d, i)]);
+                return xScale(d.pos);
             })
             .text(function (d) {
                 return d.label || "";
-            });
-
+            })
+            .call(opacity, xScale);
     });
 
-    feature.fixed (function (width) {
-        var track = this;
-        track.g
-            .append("line")
-            .attr("class", "tnt_fixed")
-            .attr("x1", 0)
-            .attr("x2", width)
-            .attr("y1", track.height())
-            .attr("y2", track.height())
-            .style("stroke", "black")
-            .style("stroke-with", "1px");
-    });
+    var get_ratio = function(xScale){
+        return (xScale.range()[1]-xScale.range()[0])/(xScale.domain()[1]-xScale.domain()[0]);
+    };
+
+    var opacity = function(elems,xScale){
+        var r = get_ratio(xScale);
+        var o_min = 0.01;
+        var a = ratio_interval[0];
+        var b = ratio_interval[1];
+        if(r<a) {
+            elems.attr("display", "none");
+        }else if(r>=a && r<b) {
+            elems.attr("display", "");
+            var o = (1-o_min)/(b-a)*(r-a)+o_min;
+            elems.attr("fill-opacity",o);
+        } else {
+            elems.attr("display", "");
+            elems.attr("fill-opacity", "1");
+        }
+    };
 
     return feature;
 };

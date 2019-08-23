@@ -1,10 +1,12 @@
 "use strict";
 
+var d3 = require("d3");
 var apijs = require ("tnt.api");
 var layout = require("./layout.js");
+var event_dispatcher = require("./event_dispatcher.js");
 
 var feature_core = function () {
-    var dispatch = d3.dispatch ("click", "dblclick", "mouseover", "mouseout");
+    var dispatch = event_dispatcher();
 
     ////// Vars exposed in the API
     var config = {
@@ -32,46 +34,63 @@ var feature_core = function () {
 
     var init = function (width) {
         var track = this;
-
-        track.g
-            .append ("text")
-            .attr ("class", "tnt_fixed")
-            .attr ("x", 5)
-            .attr ("y", 12)
-            .attr ("font-size", 11)
-            .attr ("fill", "grey")
-            .text (track.label());
-
-        config.fixed.call(track, width);
     };
 
-    var plot = function (new_elems, track, xScale) {
-        new_elems.on("click", function (d, i) {
+    var plot = function (new_elem, track, xScale) {
+        new_elem.on("click", function (d, i) {
             if (d3.event.defaultPrevented) {
                 return;
             }
-            dispatch.click.call(this, d, i);
+            dispatch.click.call(this, d, i, track);
         });
-        new_elems.on("mouseover", function (d, i) {
+        new_elem.on("mouseover", function (d, i) {
             if (d3.event.defaultPrevented) {
                 return;
             }
-            dispatch.mouseover.call(this, d, i);
+            dispatch.mouseover.call(this, d, i, track);
         });
-        new_elems.on("dblclick", function (d, i) {
+        new_elem.on("dblclick", function (d, i) {
             if (d3.event.defaultPrevented) {
                 return;
             }
-            dispatch.dblclick.call(this, d, i);
+            dispatch.dblclick.call(this, d, i, track);
         });
-        new_elems.on("mouseout", function (d, i) {
+        new_elem.on("mouseout", function (d, i) {
             if (d3.event.defaultPrevented) {
                 return;
             }
-            dispatch.mouseout.call(this, d, i);
+            dispatch.mouseout.call(this, d, i, track);
         });
         // new_elem is a g element the feature is inserted
-        config.create.call(track, new_elems, xScale);
+        config.create.call(track, new_elem, xScale);
+    };
+
+    var select_region = function(track_g, height, begin, end) {
+        var track = this;
+        if(typeof(track.scale)!=="function"){
+            return;
+        }
+        var xScale = track.scale();
+        if(typeof(height)==="number" && typeof(begin)==="number" && typeof(end)==="number") {
+            track_g.select(".tnt_select_rect").remove();
+            track_g.append("rect")
+                .attr("x", xScale(begin))
+                .attr("y", 0)
+                .attr("width", xScale(end)-xScale(begin))
+                .attr("height", height)
+                .attr("fill", "#faf3c0")
+                .attr("fill-opacity",0.75)
+                .attr("class", "tnt_select_rect");
+        }
+
+        var tnt_select_rect = track_g.select(".tnt_select_rect").node();
+        if(tnt_select_rect) {
+            var tnt_board_rect = track_g.select(".tnt_board_rect").node();
+            mtb(tnt_select_rect);
+            mtb(tnt_board_rect);
+            tnt_select_rect.parentNode.prepend(tnt_select_rect);
+            tnt_board_rect.parentNode.prepend(tnt_board_rect);
+        }
     };
 
     var update = function (loc, field) {
@@ -85,8 +104,6 @@ var feature_core = function () {
         }
 
         var data_elems = config.layout.call(track, elements);
-
-
         if (data_elems === undefined) {
             return;
         }
@@ -125,6 +142,8 @@ var feature_core = function () {
     	vis_elems
     	    .exit()
     	    .remove();
+
+
     };
 
     var mover = function (field) {
@@ -139,11 +158,15 @@ var feature_core = function () {
     	    elems = svg_g.selectAll(".tnt_elem");
     	}
 
-    	config.move.call(this, elems);
+    	config.move.call(this, elems, field);
     };
 
     var mtf = function (elem) {
         elem.parentNode.appendChild(elem);
+    };
+
+    var mtb = function (elem) {
+        elem.parentNode.prepend(elem);
     };
 
     var move_to_front = function (field) {
@@ -166,6 +189,7 @@ var feature_core = function () {
     	    update : update,
     	    mover   : mover,
     	    init   : init,
+            select_region : select_region,
     	    move_to_front : move_to_front
     	});
 

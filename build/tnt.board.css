@@ -3,9 +3,7 @@ svg text {
   /* Chrome/Safari */
   -moz-user-select: none;
   /* Firefox */
-  -ms-user-select: none;
-  /* IE10+ */
-  cursor: default; }
+  -ms-user-select: none; }
 
 .tnt_track path,
 .tnt_track line {
@@ -26,8 +24,5 @@ svg text {
 .tnt_name {
   font-size: 14px; }
 
-.tnt_framed {
-  border: 2px solid;
-  border-radius: 20px;
-  -webkit-border-radius: 20px;
-  -moz-border-radius: 20px; }
+.tnt_elem {
+  cursor: pointer; }
